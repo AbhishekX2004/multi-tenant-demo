@@ -1,0 +1,43 @@
+name: Provision Tenant Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      tenant_id:
+        description: 'Unique User ID'
+        required: true
+        type: string
+      qty:
+        description: 'Number of Instances'
+        required: true
+        default: '1'
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+
+jobs:
+  terraform-provision:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./terraform_base
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: 'us-east-1'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: hashicorp/setup-terraform@v3
+
+      - run: >
+          terraform init
+          -backend-config=bucket=multi-tenant-demo-03032026
+          -backend-config=key=tenants/${{ github.event.inputs.tenant_id }}/terraform.tfstate
+          -backend-config=region=us-east-1
+          -backend-config=use_lockfile=true
+          -reconfigure
+
+      - run: terraform apply -var="instance_count=${{ github.event.inputs.qty }}" -auto-approve
